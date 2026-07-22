@@ -948,18 +948,19 @@ const CHART_COLORS = ['#4f8cff','#22c58b','#ffb648','#ff5c72','#a78bfa','#38bdf8
 // o dentro si no cabe, en horizontal), y dona/pie (porcentaje centrado en la porción, solo si
 // es lo bastante grande para leerse). Todas las etiquetas se dibujan en blanco con un halo
 // oscuro alrededor (contorno), así se leen bien sin importar el color de fondo detrás.
-function drawLabelWithHalo(ctx, text, x, y, rotate){
+function drawLabelWithHalo(ctx, text, x, y, rotate, color, font){
   ctx.save();
+  if(font) ctx.font = font;
   if(rotate){
     ctx.translate(x, y);
     ctx.rotate(-Math.PI/2);
     x = 0; y = 0;
   }
-  ctx.lineWidth = 3;
+  ctx.lineWidth = font ? 2 : 3;
   ctx.lineJoin = 'round';
   ctx.strokeStyle = 'rgba(10,13,22,.9)';
   ctx.strokeText(text, x, y);
-  ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = color || '#ffffff';
   ctx.fillText(text, x, y);
   ctx.restore();
 }
@@ -1001,7 +1002,7 @@ const valueLabelsPlugin = {
           // debajo del punto en vez de encima, para no chocar con la línea principal.
           const below = ds.valueLabelBelow === true;
           ctx.textAlign='center'; ctx.textBaseline = below ? 'top' : 'bottom';
-          drawLabelWithHalo(ctx, text, el.x, el.y + (below ? 10 : -10), false);
+          drawLabelWithHalo(ctx, text, el.x, el.y + (below ? 8 : -10), false, ds.valueLabelColor, ds.valueLabelFont);
         } else if(isHorizontal){
           // soporta barras negativas (que crecen hacia la izquierda del cero): la etiqueta
           // se ubica del lado de la punta de la barra, no siempre a la derecha. Horizontal,
@@ -1655,7 +1656,7 @@ function renderTrend(rows){
         {type:'bar', label:'Costos directos', data: dir, backgroundColor:dirColors, borderColor:dirBorder, borderWidth:2, borderRadius:4, order:2, stack:'costos'},
         {type:'bar', label:'Otros costos', data: otr, backgroundColor:otrColors, borderColor:otrBorder, borderWidth:2, borderRadius:4, order:2, stack:'costos'},
         {type:'line', label:'Costo total', data: totalCost, borderColor:'#a78bfa', backgroundColor:'#a78bfa', tension:.3, order:1, pointRadius:pointRadii, pointBackgroundColor:pointColors, pointBorderColor:pointColors},
-        {type:'line', label:'Margen %', data: mgn, yAxisID:'y1', borderColor:'#38bdf8', backgroundColor:'#38bdf8', borderDash:[6,4], tension:.3, order:0, pointRadius:4, pointBackgroundColor:'#38bdf8', spanGaps:true, isPercent:true, valueLabelBelow:true}
+        {type:'line', label:'Margen %', data: mgn, yAxisID:'y1', borderColor:'#38bdf8', backgroundColor:'#38bdf8', borderWidth:1.5, borderDash:[5,4], tension:.3, order:0, pointRadius:3, pointBackgroundColor:'#38bdf8', spanGaps:true, isPercent:true, valueLabelBelow:true, valueLabelColor:'#9fd8ff', valueLabelFont:'600 9px system-ui, -apple-system, Segoe UI, sans-serif'}
       ]
     },
     options:{
