@@ -1405,12 +1405,20 @@ function renderSaludFilterChips(){
   renderSaludChipGroup('chipsSaludAnio', allAnios, y=>y, saludState.anios, y=>{
     saludToggleFilterValue(saludState.anios, y, allAnios);
     renderSaludAll();
-  }, ()=>{ saludState.anios = new Set(allAnios); renderSaludAll(); });
+  }, ()=>{
+    // "Todos" es un toggle: si ya estaba todo seleccionado, lo deja en cero para que puedas
+    // armar tu propia selección desde cero (en vez de quedar siempre "atascado" en todos).
+    saludState.anios = (saludState.anios.size===allAnios.length) ? new Set() : new Set(allAnios);
+    renderSaludAll();
+  });
 
   renderSaludChipGroup('chipsSaludMes', allMeses, m=>MONTH_NAMES[m], saludState.meses, m=>{
     saludToggleFilterValue(saludState.meses, m, allMeses);
     renderSaludAll();
-  }, ()=>{ saludState.meses = new Set(allMeses); renderSaludAll(); });
+  }, ()=>{
+    saludState.meses = (saludState.meses.size===allMeses.length) ? new Set() : new Set(allMeses);
+    renderSaludAll();
+  });
 }
 
 function saludFilteredRows(){
