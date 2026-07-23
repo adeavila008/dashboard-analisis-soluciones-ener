@@ -2715,74 +2715,6 @@ function openReportWizardStep3(){
   };
 }
 
-// ---------- candidatos a reclasificación ----------
-// Tres señales detectables directamente en los movimientos crudos (sin inventar el motivo real
-// de negocio, que solo lo sabe alguien con contexto operativo — igual que hace el jefe a mano
-// en su hoja RECLASIFICACIONES):
-//  1) Reverso/corrección: mismo proyecto+cuenta+tercero con un importe y su exacto opuesto (se anulan).
-//  2) Signo inusual: importe negativo en una cuenta de costo (crédito/ajuste) que no es parte de un reverso.
-//  3) Actividad puntual: un empleado que en TODO el año solo tiene movimientos en un único mes dentro
-//     de ese proyecto (posible asignación parcial o error de imputación).
-// El resultado marca movimientos candidatos a revisar — el criterio final de a dónde reclasificar
-// sigue siendo humano, por eso la columna OBSERVACION del Excel exportado se deja en blanco.
-function detectReclassCandidates(rows, yearRows){
-  const candidates = new Map(); // row -> {row, motivos:Set}
-  function addCandidate(row, motivo){
-    if(!candidates.has(row)) candidates.set(row, { row, motivos: new Set() });
-    candidates.get(row).motivos.add(motivo);
-  }
-
-  // 1) reversos: agrupar por proyecto+cuenta+tercero, buscar pares que se anulen
-  const groups = {};
-  rows.forEach(r=>{
-    if(r.eri==='01 Ingresos') return;
-    const k = r.proy+'|'+r.cuenta+'|'+r.tercero;
-    (groups[k] = groups[k]||[]).push(r);
-  });
-  Object.values(groups).forEach(list=>{
-    const used = new Array(list.length).fill(false);
-    for(let i=0;i<list.length;i++){
-      if(used[i] || list[i].importe===0) continue;
-      for(let j=i+1;j<list.length;j++){
-        if(used[j] || list[j].importe===0) continue;
-        if(Math.abs(list[i].importe + list[j].importe) < 1){
-          addCandidate(list[i], 'Posible reverso/corrección (se anula con otro movimiento del mismo tercero)');
-          addCandidate(list[j], 'Posible reverso/corrección (se anula con otro movimiento del mismo tercero)');
-          used[i]=true; used[j]=true;
-          break;
-        }
-      }
-    }
-  });
-
-  // 2) signo inusual: costo con importe negativo que no quedó ya explicado por un reverso
-  rows.forEach(r=>{
-    if(r.eri==='01 Ingresos') return;
-    if(r.importe < 0 && !candidates.has(r)){
-      addCandidate(r, 'Importe negativo en cuenta de costo (crédito/ajuste; revisar si corresponde a este proyecto)');
-    }
-  });
-
-  // 3) actividad puntual: empleado con un solo mes de movimientos en el proyecto durante TODO el año
-  const empMonths = {};
-  yearRows.forEach(r=>{
-    if(!r.emp) return;
-    const k = r.proy+'|'+r.emp;
-    (empMonths[k] = empMonths[k]||new Set()).add(monthKey(r));
-  });
-  rows.forEach(r=>{
-    if(!r.emp) return;
-    const k = r.proy+'|'+r.emp;
-    if(empMonths[k] && empMonths[k].size===1){
-      addCandidate(r, 'Empleado con actividad en un solo mes del año en este proyecto (revisar si la asignación es completa)');
-    }
-  });
-
-  const list = [...candidates.values()].map(c=>({ row:c.row, motivos:[...c.motivos] }));
-  list.sort((a,b)=> Math.abs(b.row.importe) - Math.abs(a.row.importe));
-  return list;
-}
-
 function buildReportData(){
   const { year, months, scopeType, singleProy } = reportWizard;
   const rows = wizardScopeRows(year, months, scopeType, singleProy);
@@ -2892,13 +2824,10 @@ function buildReportData(){
   });
   categoryDropRows.sort((a,b)=>b.importe-a.importe);
 
-  const reclassCandidates = detectReclassCandidates(rows, yearRows);
-
   return { year, months, scopeType, singleProy, scopeLabel: wizardScopeLabel(scopeType, singleProy),
     periodLabel: wizardMonthsLabel(months, year),
     rows, ingresos, directos, otros, totalCostos, margen, keys, ingS, costS,
-    anomalies: risesCapped.concat(dropRows).concat(categoryDropRows.slice(0,2)),
-    reclassCandidates };
+    anomalies: risesCapped.concat(dropRows).concat(categoryDropRows.slice(0,2)) };
 }
 
 function resultFormulaHtml(data){
@@ -2961,30 +2890,6 @@ function renderReportModal(data){
     </div>
     <p style="font-size:11px; color:var(--muted); margin:6px 0 0;">Clic en una fila para ver el detalle de a qué corresponde ese valor. Las filas "↓ Caída" muestran el nivel mensual previo a la caída, no un importe puntual.</p>` : '<p class="psum-empty">No se detectaron anomalías materiales en este alcance.</p>';
 
-  const reclassRowsHtml = data.reclassCandidates.slice(0,150).map(c=>{
-    const r = c.row;
-    const quien = r.emp || r.tercero || '—';
-    return `<tr>
-      <td>${monthKeyLabel(monthKey(r))}</td>
-      <td>${r.proy}</td>
-      <td title="${escAttr(r.cmayor)}">${r.cuenta}</td>
-      <td title="${escAttr(r.desc)}">${r.desc.length>42 ? r.desc.slice(0,42)+'…' : r.desc}</td>
-      <td title="${escAttr(quien)}">${quien.length>28 ? quien.slice(0,28)+'…' : quien}</td>
-      <td class="num" style="font-weight:700;">${fmtCOP(r.importe)}</td>
-      <td style="font-size:11px; color:var(--muted);">${c.motivos.join(' · ')}</td>
-    </tr>`;
-  }).join('');
-  const reclassHtml = data.reclassCandidates.length ? `
-    <div class="mini-table-wrap tbl-scroll" style="max-height:340px;">
-    <table class="mini-table" id="reportReclassTable">
-      <colgroup><col style="width:8%"><col style="width:9%"><col style="width:13%"><col style="width:20%"><col style="width:14%"><col style="width:12%"><col style="width:auto"></colgroup>
-      <thead><tr><th>Mes</th><th>Proyecto</th><th>Cuenta</th><th>Descripción</th><th>Tercero/Empleado</th><th class="num">Importe</th><th>Señal detectada</th></tr></thead>
-      <tbody>${reclassRowsHtml}</tbody>
-    </table>
-    </div>
-    <p style="font-size:11px; color:var(--muted); margin:6px 0 0;">${data.reclassCandidates.length} movimiento(s) con patrones estructurales (reversos, signos inusuales o actividad puntual de un empleado). Son candidatos a revisar, no una reclasificación confirmada — el destino correcto lo define el equipo.${data.reclassCandidates.length>150?' Se muestran los primeros 150; el Excel descargable incluye todos.':''}</p>`
-    : '<p class="psum-empty">No se detectaron patrones estructurales de reclasificación en este alcance.</p>';
-
   const body = `
     <p style="color:var(--muted); font-size:12.5px; margin-top:0;"><b>${data.periodLabel}</b> &nbsp;·&nbsp; ${data.scopeLabel} &nbsp;·&nbsp; ${data.rows.length} movimientos</p>
     <div class="modal-kpi-line">
@@ -2999,14 +2904,11 @@ function renderReportModal(data){
     <div class="chart-box" style="height:220px;"><canvas id="chartReport"></canvas></div>
     <h4>⚠ Principales anomalías detectadas (saltos grandes de costo y caídas sostenidas)</h4>
     ${anomHtml}
-    <h4>🔁 Candidatos a reclasificación (revisar manualmente)</h4>
-    ${reclassHtml}
     <h4>Conclusiones</h4>
     <p style="font-size:12.5px; line-height:1.6;">${conclusion}</p>
-    <div style="margin-top:16px; display:flex; gap:10px; flex-wrap:wrap;">
+    <div style="margin-top:16px; display:flex; gap:10px;">
       <button class="btn" id="btnWizardBack3">‹ Volver</button>
       <button class="upload-label" id="btnDownloadPDF" style="border:none; cursor:pointer;">📥 Descargar PDF</button>
-      <button class="upload-label" id="btnDownloadReclass" style="border:none; cursor:pointer;" ${data.reclassCandidates.length?'':'disabled title="No hay candidatos en este alcance"'}>📊 Descargar Excel de reclasificaciones</button>
     </div>
   `;
   openModal('📄 Informe ejecutivo de costos', '', body);
@@ -3049,27 +2951,6 @@ function renderReportModal(data){
   });
 
   document.getElementById('btnDownloadPDF').onclick = ()=> exportReportPDF(data);
-  const btnReclass = document.getElementById('btnDownloadReclass');
-  if(btnReclass && !btnReclass.disabled) btnReclass.onclick = ()=> exportReclassExcel(data);
-}
-
-// Genera un .xlsx descargable con los movimientos candidatos a reclasificación, con la misma
-// "dinámica" de columnas que usa el jefe en su hoja RECLASIFICACIONES manual: se deja la columna
-// OBSERVACION en blanco a propósito (el motivo de negocio para reclasificar solo lo sabe el equipo;
-// esta herramienta solo puede señalar el patrón estructural que hace sospechoso al movimiento).
-function exportReclassExcel(data){
-  const header = ['Empresa','Eri_est (T)','Direccion_linea (T)','Cuenta_mayor (T)','Cuenta (T)','Proyecto','Proyecto (T)','Año','Periodo','Fecha','Tipo de asientos','Número de asiento','Descripción','Tercero (T)','Empleado (T)','Importe','Señal detectada (automática)','OBSERVACION'];
-  const body = data.reclassCandidates.map(c=>{
-    const r = c.row;
-    return ['ISE', r.eri, 'DIRECCION DE SOLUCIONES ENERGÉTICAS', r.cmayor, r.cuenta, r.proy, r.proyN, r.anio, r.per, r.fecha, r.tipo, r.asiento, r.desc, r.tercero, r.emp, r.importe, c.motivos.join(' | '), ''];
-  });
-  const ws = XLSX.utils.aoa_to_sheet([header, ...body]);
-  ws['!cols'] = header.map((h,i)=> i===12 ? {wch:42} : (i===16 ? {wch:48} : (i===17 ? {wch:35} : {wch:16})));
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'RECLASIFICACIONES');
-  const scopeSlug = data.scopeType==='single' ? data.singleProy : (data.scopeType==='activos'?'activos':'direccion');
-  const periodSlug = data.months ? [...data.months].sort((a,b)=>a-b).map(m=>MONTH_NAMES[m]).join('-') : 'ANUAL';
-  XLSX.writeFile(wb, `Reclasificaciones_SolEnergeticas_${data.year}_${periodSlug}_${scopeSlug}.xlsx`);
 }
 
 function exportReportPDF(data){
@@ -3140,37 +3021,6 @@ function exportReportPDF(data){
   } else {
     doc.setFontSize(10); doc.setFont(undefined,'normal');
     doc.text('No se detectaron anomalías materiales en este alcance.', 40, y+14);
-    y += 34;
-  }
-
-  if(y > doc.internal.pageSize.getHeight()-150){ doc.addPage(); y = 40; }
-  doc.setFontSize(11); doc.setFont(undefined,'bold'); doc.setTextColor(20);
-  doc.text('Candidatos a reclasificación (revisar manualmente)', 40, y); y += 8;
-
-  if(data.reclassCandidates.length){
-    doc.autoTable({
-      startY: y+4, margin:{left:40,right:40},
-      head: [['Mes','Proyecto','Cuenta','Descripción','Tercero/Empleado','Importe (COP)','Señal detectada']],
-      body: data.reclassCandidates.slice(0,150).map(c=>{
-        const r = c.row;
-        return [
-          monthKeyLabel(monthKey(r)),
-          r.proy, r.cuenta, r.desc, (r.emp||r.tercero||'—'), fmtCOP(r.importe), c.motivos.join(' | ')
-        ];
-      }),
-      styles:{fontSize:7.5, cellPadding:3, overflow:'linebreak', valign:'top'},
-      headStyles:{fillColor:[22,29,46], textColor:255, fontStyle:'bold'},
-      columnStyles:{3:{cellWidth:110}, 6:{cellWidth:120}},
-    });
-    y = doc.lastAutoTable.finalY + 10;
-    doc.setFontSize(8); doc.setFont(undefined,'italic'); doc.setTextColor(110);
-    const reclassNote = doc.splitTextToSize(`${data.reclassCandidates.length} movimiento(s) candidato(s) a revisar (no una reclasificación confirmada). Descarga el Excel de reclasificaciones desde el informe en pantalla para trabajarlos en formato editable.`, pageW-80);
-    doc.text(reclassNote, 40, y);
-    y += reclassNote.length*10 + 14;
-    doc.setFont(undefined,'normal'); doc.setTextColor(20);
-  } else {
-    doc.setFontSize(10); doc.setFont(undefined,'normal');
-    doc.text('No se detectaron patrones estructurales de reclasificación en este alcance.', 40, y+14);
     y += 34;
   }
 
