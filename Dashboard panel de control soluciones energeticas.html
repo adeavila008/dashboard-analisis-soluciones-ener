@@ -138,6 +138,20 @@ input[type=text]::placeholder{color:var(--muted);}
 .seg button{background:var(--panel2); border:none; color:var(--muted); padding:7px 12px; font-size:12.5px; cursor:pointer;}
 .seg button.active{background:var(--accent); color:#fff;}
 
+/* combobox con búsqueda (ej. selector de Proyecto en Salud) */
+.combo{position:relative;}
+.combo-input{width:100%; min-width:0;}
+.combo-list{
+  position:absolute; top:calc(100% + 4px); left:0; right:0; max-height:280px; overflow-y:auto;
+  background:var(--panel2); border:1px solid var(--border); border-radius:8px; z-index:30;
+  display:none; box-shadow:0 10px 28px rgba(0,0,0,.4);
+}
+.combo-list.open{display:block;}
+.combo-option{padding:9px 12px; font-size:12.5px; cursor:pointer; color:var(--text);}
+.combo-option:hover, .combo-option.hl{background:var(--panel);}
+.combo-option .sub{display:block; font-size:10.5px; color:var(--muted); margin-top:1px;}
+.combo-empty{padding:10px 12px; font-size:12.5px; color:var(--muted);}
+
 /* project summary */
 .psum-header{display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px; margin-bottom:14px;}
 .psum-header .pname{font-size:15px; font-weight:600;}
@@ -600,18 +614,21 @@ input:checked + .slider:before{transform:translateX(16px);}
 
   <div class="panel">
     <h2>Proyectos <span class="tag" id="lblSaludCount"></span></h2>
-    <div class="f-group" style="max-width:440px;">
+    <div class="f-group" style="max-width:440px; position:relative;">
       <label>Proyecto</label>
-      <select id="selSaludProy"></select>
+      <div class="combo" id="comboSaludProy">
+        <input type="text" class="combo-input" id="inputSaludProy" autocomplete="off" placeholder="Buscar proyecto...">
+        <div class="combo-list" id="listSaludProy"></div>
+      </div>
     </div>
     <div class="filters" style="margin-top:14px;">
       <div class="f-group">
         <label>Año</label>
-        <div class="chips" id="chipsSaludAnio"></div>
+        <select id="selSaludAnio"></select>
       </div>
       <div class="f-group">
         <label>Mes</label>
-        <div class="chips" id="chipsSaludMes"></div>
+        <select id="selSaludMes"></select>
       </div>
       <div class="f-group">
         <button class="btn" id="btnSaludReset">Limpiar filtros</button>
@@ -1397,6 +1414,30 @@ document.getElementById('navSalud').addEventListener('click', ()=> showModule('s
 document.getElementById('inicioCardFinanciero').addEventListener('click', ()=> showModule('financiero'));
 document.getElementById('inicioCardSalud').addEventListener('click', ()=> showModule('salud'));
 document.getElementById('btnSaludReset').addEventListener('click', ()=>{ if(saludState.ceco) saludSetProject(saludState.ceco); });
+
+// combobox de proyecto (Salud): buscar por substring, click/mousedown para elegir, cerrar al perder foco o clic afuera
+(function(){
+  const input = document.getElementById('inputSaludProy');
+  input.addEventListener('focus', ()=>{ input.select(); saludRenderComboList(''); });
+  input.addEventListener('input', ()=>{ saludRenderComboList(input.value); });
+  input.addEventListener('keydown', (e)=>{
+    if(e.key==='Escape'){ saludCloseCombo(); input.blur(); }
+    if(e.key==='Enter'){
+      const matches = saludComboMatches(input.value);
+      if(matches.length){ saludCloseCombo(); saludSetProject(matches[0].ceco); input.blur(); }
+    }
+  });
+  input.addEventListener('blur', ()=>{
+    setTimeout(()=>{
+      saludCloseCombo();
+      const current = saludProyOptions.find(p=>p.ceco===saludState.ceco);
+      input.value = current ? current.nombre : '';
+    }, 120);
+  });
+  document.addEventListener('click', (e)=>{
+    if(!document.getElementById('comboSaludProy').contains(e.target)) saludCloseCombo();
+  });
+})();
 document.getElementById('selSaludResumenMes').addEventListener('change', renderSaludResumenTable);
 
 // metadata captured per render, used by chart click handlers to know what was clicked
@@ -1511,18 +1552,18 @@ function openModal(title, sub, bodyHtml){
 // Datos ya vienen calculados desde el Excel de líneas base (build_evm_data.py):
 // cada mes ya trae el avance/costo PLANEADO vigente (la línea base más reciente
 // entre LB1..LB4) y el avance/costo REAL, más CPI/SPI/EV ya calculados.
-let saludState = { ceco: null, anios: new Set(), meses: new Set() };
+let saludState = { ceco: null, anio: 'todos', mes: 'todos' };
+let saludProyOptions = []; // {ceco, nombre} — poblado por renderSaludProjectChips, usado por el combobox
 
 function saludRowsFor(ceco){
   return EVM_RECORDS.filter(r=>r.ceco===ceco).sort((a,b)=> a.mes<b.mes?-1:(a.mes>b.mes?1:0));
 }
 
-// cambia de proyecto y reinicia los filtros de Año/Mes a "todos" (los disponibles para ese proyecto)
+// cambia de proyecto y reinicia los filtros de Año/Mes a "Todos"
 function saludSetProject(ceco){
   saludState.ceco = ceco;
-  const rows = saludRowsFor(ceco);
-  saludState.anios = new Set(rows.map(r=>r.mes.slice(0,4)));
-  saludState.meses = new Set(rows.map(r=>parseInt(r.mes.slice(5,7),10)));
+  saludState.anio = 'todos';
+  saludState.mes = 'todos';
   renderSaludAll();
 }
 
@@ -1536,78 +1577,78 @@ function initSalud(){
   saludSetProject(best);
 }
 
-// Selector de proyecto como desplegable (un solo proyecto activo a la vez en Salud), mostrando
-// el NOMBRE del proyecto en vez del código de CECO (más legible), ordenado alfabéticamente.
+// Selector de proyecto como combobox con búsqueda (un solo proyecto activo a la vez en Salud):
+// muestra el NOMBRE del proyecto (no el código CECO) y permite escribir para filtrar por
+// substring, ignorando mayúsculas/tildes, en vez de tener que desplazarte por una lista larga.
 function renderSaludProjectChips(){
   const cecos = [...new Set(EVM_RECORDS.map(r=>r.ceco))];
   document.getElementById('lblSaludCount').textContent = cecos.length + ' proyectos con seguimiento';
-  const withNames = cecos.map(c=>{
+  saludProyOptions = cecos.map(c=>{
     const rows = saludRowsFor(c);
     const proyN = rows.length ? (rows[0].proyecto || c) : c;
     return {ceco:c, nombre:proyN};
   }).sort((a,b)=> a.nombre.localeCompare(b.nombre, 'es'));
-  const sel = document.getElementById('selSaludProy');
-  sel.innerHTML = withNames.map(p=>
-    `<option value="${escAttr(p.ceco)}" ${p.ceco===saludState.ceco?'selected':''} title="${escAttr(p.ceco)}">${escAttr(p.nombre)}</option>`
-  ).join('');
-  sel.onchange = ()=>{ saludSetProject(sel.value); };
+  const input = document.getElementById('inputSaludProy');
+  const current = saludProyOptions.find(p=>p.ceco===saludState.ceco);
+  if(document.activeElement !== input) input.value = current ? current.nombre : '';
 }
 
-// Chip "Todos" + selección inteligente: si ya está todo seleccionado, hacer clic en un
-// valor específico AISLA la selección a solo ese valor (en vez de dejar "todos menos uno"),
-// que es el flujo que de verdad se usa (ej. "quiero ver solo 2026 y Junio"). Clics
-// posteriores sobre otros valores sí se acumulan (multi-selección normal).
-function saludToggleFilterValue(set, value, allValues){
-  const allSelected = set.size === allValues.length;
-  if(allSelected){
-    set.clear();
-    set.add(value);
-  } else if(set.has(value)){
-    set.delete(value);
-    if(set.size===0) allValues.forEach(v=>set.add(v)); // no dejar la selección vacía
-  } else {
-    set.add(value);
-  }
+function saludComboMatches(query){
+  const q = normalizeStr(query||'');
+  if(!q) return saludProyOptions;
+  return saludProyOptions.filter(p=> normalizeStr(p.nombre).includes(q) || normalizeStr(p.ceco).includes(q));
 }
 
-function renderSaludChipGroup(containerId, values, labelFn, activeSet, onToggle, onSelectAll){
-  const el = document.getElementById(containerId);
-  const allSelected = activeSet.size === values.length;
-  el.innerHTML = `<div class="chip${allSelected?' active':''}" data-all="1">Todos</div>` +
-    values.map(v=>`<div class="chip${activeSet.has(v)?' active':''}">${escAttr(labelFn(v))}</div>`).join('');
-  el.querySelector('[data-all]').onclick = onSelectAll;
-  [...el.children].slice(1).forEach((chip, i)=>{ chip.onclick = ()=> onToggle(values[i]); });
+function saludCloseCombo(){
+  document.getElementById('listSaludProy').classList.remove('open');
 }
 
+function saludRenderComboList(query){
+  const list = document.getElementById('listSaludProy');
+  const matches = saludComboMatches(query);
+  list.innerHTML = matches.length
+    ? matches.map(p=>`<div class="combo-option" data-ceco="${escAttr(p.ceco)}">${escAttr(p.nombre)}<span class="sub">${escAttr(p.ceco)}</span></div>`).join('')
+    : '<div class="combo-empty">Sin resultados</div>';
+  list.classList.add('open');
+  list.querySelectorAll('.combo-option').forEach(opt=>{
+    // mousedown (no click) para que dispare ANTES del blur del input y no se pierda la selección
+    opt.onmousedown = (e)=>{
+      e.preventDefault();
+      saludCloseCombo();
+      saludSetProject(opt.getAttribute('data-ceco'));
+    };
+  });
+  return matches;
+}
+
+// Año/Mes como desplegables simples (un solo valor a la vez, más "Todos"), en vez de chips
+// multi-selección — más compacto y directo para elegir un periodo puntual del proyecto activo.
 function renderSaludFilterChips(){
   const allRows = saludRowsFor(saludState.ceco);
   const allAnios = [...new Set(allRows.map(r=>r.mes.slice(0,4)))].sort();
   const allMeses = [...new Set(allRows.map(r=>parseInt(r.mes.slice(5,7),10)))].sort((a,b)=>a-b);
 
-  renderSaludChipGroup('chipsSaludAnio', allAnios, y=>y, saludState.anios, y=>{
-    saludToggleFilterValue(saludState.anios, y, allAnios);
-    renderSaludAll();
-  }, ()=>{
-    // "Todos" es un toggle: si ya estaba todo seleccionado, lo deja en cero para que puedas
-    // armar tu propia selección desde cero (en vez de quedar siempre "atascado" en todos).
-    saludState.anios = (saludState.anios.size===allAnios.length) ? new Set() : new Set(allAnios);
-    renderSaludAll();
-  });
+  if(!allAnios.includes(saludState.anio)) saludState.anio = 'todos';
+  if(saludState.mes!=='todos' && !allMeses.includes(saludState.mes)) saludState.mes = 'todos';
 
-  renderSaludChipGroup('chipsSaludMes', allMeses, m=>MONTH_NAMES[m], saludState.meses, m=>{
-    saludToggleFilterValue(saludState.meses, m, allMeses);
-    renderSaludAll();
-  }, ()=>{
-    saludState.meses = (saludState.meses.size===allMeses.length) ? new Set() : new Set(allMeses);
-    renderSaludAll();
-  });
+  const selAnio = document.getElementById('selSaludAnio');
+  selAnio.innerHTML = `<option value="todos">Todos</option>` + allAnios.map(y=>`<option value="${y}">${y}</option>`).join('');
+  selAnio.value = saludState.anio;
+  selAnio.onchange = ()=>{ saludState.anio = selAnio.value; renderSaludAll(); };
+
+  const selMes = document.getElementById('selSaludMes');
+  selMes.innerHTML = `<option value="todos">Todos</option>` + allMeses.map(m=>`<option value="${m}">${MONTH_NAMES[m]}</option>`).join('');
+  selMes.value = saludState.mes;
+  selMes.onchange = ()=>{ saludState.mes = selMes.value==='todos' ? 'todos' : parseInt(selMes.value,10); renderSaludAll(); };
 }
 
 function saludFilteredRows(){
   return saludRowsFor(saludState.ceco).filter(r=>{
     const y = r.mes.slice(0,4);
     const m = parseInt(r.mes.slice(5,7),10);
-    return saludState.anios.has(y) && saludState.meses.has(m);
+    if(saludState.anio!=='todos' && y!==saludState.anio) return false;
+    if(saludState.mes!=='todos' && m!==saludState.mes) return false;
+    return true;
   });
 }
 
