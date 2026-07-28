@@ -47,37 +47,47 @@ body{
 body.splash-open{overflow:hidden;}
 .app-shell{display:flex; align-items:flex-start;}
 .side-nav{
-  position:sticky; top:0; align-self:flex-start; height:100vh; flex:0 0 84px; width:84px;
+  position:sticky; top:0; align-self:flex-start; height:100vh; flex:0 0 236px; width:236px;
   background:linear-gradient(180deg, var(--panel) 0%, #121826 100%);
   border-right:1px solid var(--border);
-  display:flex; flex-direction:column; align-items:center;
-  padding:30px 10px 20px; gap:5px; z-index:20; overflow-y:auto; overflow-x:hidden;
+  display:flex; flex-direction:column; align-items:stretch;
+  padding:20px 14px 20px; gap:2px; z-index:20; overflow-y:auto; overflow-x:hidden;
   box-shadow:2px 0 24px rgba(0,0,0,.28);
 }
+.side-nav-header{display:flex; align-items:center; gap:10px; padding:2px 6px 16px; margin-bottom:8px; border-bottom:1px solid var(--border);}
+.side-nav-badge{width:34px; height:34px; border-radius:9px; background:var(--accent); color:#fff; font-weight:700; font-size:12px; letter-spacing:.02em; display:flex; align-items:center; justify-content:center; flex-shrink:0;}
+.side-nav-brand{display:flex; flex-direction:column; line-height:1.3; min-width:0;}
+.side-nav-brand b{font-size:13px; color:var(--text);}
+.side-nav-brand span{font-size:10.5px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.side-nav-section-lbl{font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); padding:14px 8px 6px;}
 .side-nav-item{
-  position:relative; width:100%; display:flex; flex-direction:column; align-items:center; gap:5px;
-  padding:10px 4px; border-radius:12px; cursor:pointer; color:var(--muted);
-  transition:background .18s ease, color .18s ease, transform .18s ease; text-align:center;
+  position:relative; display:flex; flex-direction:row; align-items:center; gap:11px;
+  padding:9px 8px; border-radius:10px; cursor:pointer; color:var(--muted);
+  transition:background .18s ease, color .18s ease; text-align:left;
 }
 .side-nav-item .ic-wrap{
-  width:32px; height:32px; border-radius:10px; display:flex; align-items:center; justify-content:center;
-  background:transparent; transition:background .2s ease, box-shadow .2s ease;
+  width:30px; height:30px; border-radius:9px; display:flex; align-items:center; justify-content:center;
+  background:transparent; flex-shrink:0; transition:background .2s ease, box-shadow .2s ease;
 }
-.side-nav-item .ic-wrap svg{width:18px; height:18px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; transition:stroke .18s ease;}
-.side-nav-item .lbl{font-size:9.5px; font-weight:600; text-transform:uppercase; letter-spacing:.035em; transition:color .18s ease;}
-.side-nav-item:hover{color:var(--text); transform:translateY(-1px);}
+.side-nav-item .ic-wrap svg{width:16px; height:16px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; transition:stroke .18s ease;}
+.side-nav-item .lbl{font-size:12.5px; font-weight:600; letter-spacing:.01em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.side-nav-item:hover{color:var(--text); background:rgba(255,255,255,.035);}
 .side-nav-item:hover .ic-wrap{background:rgba(255,255,255,.07);}
-.side-nav-item.active{color:#fff;}
+.side-nav-item.active{color:#fff; background:rgba(79,140,255,.13);}
 .side-nav-item.active .ic-wrap{background:var(--accent); box-shadow:0 4px 16px -2px rgba(79,140,255,.55);}
 .side-nav-item.active::before{
-  content:''; position:absolute; left:-10px; top:50%; transform:translateY(-50%);
-  width:3px; height:24px; border-radius:0 4px 4px 0; background:var(--accent);
+  content:''; position:absolute; left:-14px; top:50%; transform:translateY(-50%);
+  width:3px; height:22px; border-radius:0 4px 4px 0; background:var(--accent);
 }
+.upload-box-file{display:none;}
 .app-content{flex:1; min-width:0;}
 @media (max-width:720px){
-  .side-nav{position:fixed; left:0; right:0; bottom:0; top:auto; height:auto; width:auto; flex-direction:row; justify-content:space-around; border-right:none; border-top:1px solid var(--border); padding:8px; box-shadow:0 -2px 24px rgba(0,0,0,.28);}
-  .side-nav-item{width:auto;}
+  .side-nav{position:fixed; left:0; right:0; bottom:0; top:auto; height:auto; width:auto; flex-direction:row; justify-content:space-around; align-items:stretch; border-right:none; border-top:1px solid var(--border); padding:8px; box-shadow:0 -2px 24px rgba(0,0,0,.28); gap:0;}
+  .side-nav-header, .side-nav-section-lbl, .side-nav-action{display:none;}
+  .side-nav-item{width:auto; flex-direction:column; gap:4px; padding:8px 10px;}
+  .side-nav-item .lbl{font-size:9.5px; text-transform:uppercase; letter-spacing:.03em; white-space:normal;}
   .side-nav-item.active::before{left:50%; top:-8px; transform:translateX(-50%); width:24px; height:3px; border-radius:4px 4px 0 0;}
+  .upload-box-file{display:flex;}
   .app-content{padding-bottom:78px;}
 }
 h1{font-size:22px; margin:0 0 4px;}
@@ -308,6 +318,11 @@ input:checked + .slider:before{transform:translateX(16px);}
 </div>
 <div class="app-shell">
 <div class="side-nav" id="sideNav">
+  <div class="side-nav-header">
+    <div class="side-nav-badge">SE</div>
+    <div class="side-nav-brand"><b>ISES</b><span>Panel de gestión</span></div>
+  </div>
+  <div class="side-nav-section-lbl">Navegación</div>
   <div class="side-nav-item" id="navInicio" title="Volver a escoger el módulo">
     <span class="ic-wrap"><svg viewBox="0 0 24 24"><path d="M3 10.5L12 3l9 7.5"/><path d="M5.5 9.5V21h13V9.5"/><path d="M9.5 21v-6.5h5V21"/></svg></span>
     <span class="lbl">Inicio</span>
@@ -320,6 +335,15 @@ input:checked + .slider:before{transform:translateX(16px);}
     <span class="ic-wrap"><svg viewBox="0 0 24 24"><polyline points="22 12.5 18 12.5 15.5 21 9.5 3 6.5 12.5 2 12.5"/></svg></span>
     <span class="lbl">Salud</span>
   </div>
+  <div class="side-nav-section-lbl">Datos</div>
+  <label class="side-nav-item side-nav-action" for="fileInput" title="Cargar Excel mensual (módulo Financiero)">
+    <span class="ic-wrap"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></span>
+    <span class="lbl">Cargar Excel mensual</span>
+  </label>
+  <label class="side-nav-item side-nav-action" for="fileInputSalud" title="Cargar Excel de indicadores (módulo Salud)">
+    <span class="ic-wrap"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></span>
+    <span class="lbl">Cargar Excel indicadores</span>
+  </label>
 </div>
 <div class="app-content">
 <div class="wrap" id="wrapFinanciero">
@@ -331,7 +355,7 @@ input:checked + .slider:before{transform:translateX(16px);}
         <p class="subtitle" id="subtitleLine">Dashboard realizado para el análisis financiero de los proyectos en la dirección</p>
       </div>
     </div>
-    <div class="upload-box">
+    <div class="upload-box upload-box-file">
       <label class="upload-label" for="fileInput">⭱ Cargar Excel mensual</label>
       <input type="file" id="fileInput" accept=".xlsx,.xls">
       <div class="upload-info">Sube el export contable del mes (mismo formato IBReport). Se procesa en tu navegador, filtra automáticamente por Dirección de Soluciones Energéticas y detecta proyectos nuevos.</div>
@@ -489,7 +513,7 @@ input:checked + .slider:before{transform:translateX(16px);}
         <p class="subtitle">CPI, SPI y Curva S: avance planificado vs. avance real de cada proyecto</p>
       </div>
     </div>
-    <div class="upload-box">
+    <div class="upload-box upload-box-file">
       <label class="upload-label" for="fileInputSalud">⭱ Cargar Excel de indicadores</label>
       <input type="file" id="fileInputSalud" accept=".xlsx,.xls">
       <div class="upload-info">Sube el consolidado de líneas base (hoja "DATA", mismo formato del archivo con CPI/SPI/Curva S por proyecto). Se procesa en tu navegador y reemplaza los datos de este módulo.</div>
