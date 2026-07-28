@@ -600,7 +600,10 @@ input:checked + .slider:before{transform:translateX(16px);}
 
   <div class="panel">
     <h2>Proyectos <span class="tag" id="lblSaludCount"></span></h2>
-    <div class="chips" id="chipsSaludProy"></div>
+    <div class="f-group" style="max-width:440px;">
+      <label>Proyecto</label>
+      <select id="selSaludProy"></select>
+    </div>
     <div class="filters" style="margin-top:14px;">
       <div class="f-group">
         <label>Año</label>
@@ -1533,19 +1536,21 @@ function initSalud(){
   saludSetProject(best);
 }
 
+// Selector de proyecto como desplegable (un solo proyecto activo a la vez en Salud), mostrando
+// el NOMBRE del proyecto en vez del código de CECO (más legible), ordenado alfabéticamente.
 function renderSaludProjectChips(){
   const cecos = [...new Set(EVM_RECORDS.map(r=>r.ceco))];
   document.getElementById('lblSaludCount').textContent = cecos.length + ' proyectos con seguimiento';
-  const box = document.getElementById('chipsSaludProy');
-  box.innerHTML = cecos.map(c=>{
+  const withNames = cecos.map(c=>{
     const rows = saludRowsFor(c);
     const proyN = rows.length ? (rows[0].proyecto || c) : c;
-    const active = c===saludState.ceco ? 'active' : '';
-    return `<div class="chip ${active}" data-ceco="${escAttr(c)}" title="${escAttr(proyN)}">${escAttr(c)}</div>`;
-  }).join('');
-  box.querySelectorAll('.chip').forEach(el=>{
-    el.onclick = ()=>{ saludSetProject(el.getAttribute('data-ceco')); };
-  });
+    return {ceco:c, nombre:proyN};
+  }).sort((a,b)=> a.nombre.localeCompare(b.nombre, 'es'));
+  const sel = document.getElementById('selSaludProy');
+  sel.innerHTML = withNames.map(p=>
+    `<option value="${escAttr(p.ceco)}" ${p.ceco===saludState.ceco?'selected':''} title="${escAttr(p.ceco)}">${escAttr(p.nombre)}</option>`
+  ).join('');
+  sel.onchange = ()=>{ saludSetProject(sel.value); };
 }
 
 // Chip "Todos" + selección inteligente: si ya está todo seleccionado, hacer clic en un
