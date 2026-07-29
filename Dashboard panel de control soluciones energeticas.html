@@ -558,7 +558,7 @@ input:checked + .slider:before{transform:translateX(16px);}
 
   <div class="grid2">
     <div class="panel">
-      <h2>Tendencia mensual — Ingresos vs Costos <span class="tag">clic en una barra/punto para ver el detalle</span><button class="expand-btn" onclick="toggleFullscreenPanel(this)" title="Ampliar a pantalla completa">⤢</button></h2>
+      <h2>Tendencia mensual — Ingresos vs Costos <span class="tag">clic en una barra para ver el detalle</span><button class="expand-btn" onclick="toggleFullscreenPanel(this)" title="Ampliar a pantalla completa">⤢</button></h2>
       <div class="chart-box tall"><canvas id="chartTrend"></canvas></div>
       <div id="peakNote"></div>
     </div>
@@ -569,9 +569,15 @@ input:checked + .slider:before{transform:translateX(16px);}
     </div>
   </div>
 
-  <div class="panel">
-    <h2>Margen mensual (%) <span class="tag">meta: ≥ 30% &nbsp;·&nbsp; clic en un punto para ver el detalle</span><button class="expand-btn" onclick="toggleFullscreenPanel(this)" title="Ampliar a pantalla completa">⤢</button></h2>
-    <div class="chart-box"><canvas id="chartMargin"></canvas></div>
+  <div class="grid2">
+    <div class="panel">
+      <h2>Costo total mensual <span class="tag">clic en un punto para ver el detalle · picos atípicos resaltados</span><button class="expand-btn" onclick="toggleFullscreenPanel(this)" title="Ampliar a pantalla completa">⤢</button></h2>
+      <div class="chart-box tall"><canvas id="chartCostoTotal"></canvas></div>
+    </div>
+    <div class="panel">
+      <h2>Margen mensual (%) <span class="tag">meta: ≥ 30% &nbsp;·&nbsp; clic en un punto para ver el detalle</span><button class="expand-btn" onclick="toggleFullscreenPanel(this)" title="Ampliar a pantalla completa">⤢</button></h2>
+      <div class="chart-box tall"><canvas id="chartMargin"></canvas></div>
+    </div>
   </div>
 
   <div class="grid2">
@@ -1348,7 +1354,7 @@ const valueLabelsPlugin = {
 Chart.register(valueLabelsPlugin);
 
 // ---------- ampliar panel a pantalla completa ----------
-const CHART_KEY_BY_CANVAS = {chartTrend:'trend', chartDonut:'donut', chartIngresos:'ingresos', chartCuentas:'cuentas', chartEmpleados:'empleados', chartMargin:'margin', chartSaludAvance:'saludAvance', chartSaludCosto:'saludCosto', chartSaludCpiSpi:'saludCpiSpi'};
+const CHART_KEY_BY_CANVAS = {chartTrend:'trend', chartDonut:'donut', chartIngresos:'ingresos', chartCuentas:'cuentas', chartEmpleados:'empleados', chartMargin:'margin', chartCostoTotal:'costoTotal', chartSaludAvance:'saludAvance', chartSaludCosto:'saludCosto', chartSaludCpiSpi:'saludCpiSpi'};
 function collapseFullscreenPanel(panel){
   panel.classList.remove('panel-fs');
   const btn = panel.querySelector('.expand-btn');
@@ -1498,6 +1504,7 @@ document.getElementById('selSaludResumenMes').addEventListener('change', renderS
 let trendMeta = null;   // {keys, labels, ing, dir, otr, totalCost, rows}
 let donutMeta = null;   // {entries, rows}
 let marginMeta = null;  // {keys, labels, mgn, rows}
+let costoTotalMeta = null; // {keys, labels, totalCost, rows, outliers}
 let ingresosMeta = null;// {entries, rows}
 let cuentasMeta = null; // {entries, rows}
 
@@ -2402,6 +2409,7 @@ function refresh(){
   const filtered = getFiltered();
   renderKPIs(filtered);
   renderTrend(filtered);
+  renderCostoTotal(filtered);
   renderMargin(filtered);
   renderDonut(filtered);
   renderIngresos(filtered);
@@ -2465,12 +2473,10 @@ function renderTrend(rows){
 
   trendMeta = {keys, labels, ing, dir, otr, mgn, totalCost, rows, outliers};
 
-  const dirColors = dir.map((v,i)=> outliers[i] ? '#ff1744e6' : '#ffb648e6');
-  const otrColors = otr.map((v,i)=> outliers[i] ? '#ff1744e6' : '#ff5c72e6');
-  const dirBorder = outliers.map(o=> o ? '#ff1744' : 'transparent');
-  const otrBorder = outliers.map(o=> o ? '#ff1744' : 'transparent');
-  const pointColors = totalCost.map((v,i)=> outliers[i] ? '#ff1744' : '#a78bfa');
-  const pointRadii = totalCost.map((v,i)=> outliers[i] ? 8 : 4);
+  const dirColors = dir.map((v,i)=> outliers[i] ? '#ff2e63f0' : '#ffab40e6');
+  const otrColors = otr.map((v,i)=> outliers[i] ? '#ff2e63f0' : '#f4587ce6');
+  const dirBorder = outliers.map(o=> o ? '#ff2e63' : 'transparent');
+  const otrBorder = outliers.map(o=> o ? '#ff2e63' : 'transparent');
 
   destroyChart('trend');
   const ctx = document.getElementById('chartTrend');
@@ -2478,11 +2484,10 @@ function renderTrend(rows){
     data: {
       labels,
       datasets: [
-        {type:'bar', label:'Ingresos', data: ing, backgroundColor:'#22c58be6', borderRadius:4, order:2},
-        {type:'bar', label:'Costos directos', data: dir, backgroundColor:dirColors, borderColor:dirBorder, borderWidth:2, borderRadius:4, order:2, stack:'costos'},
-        {type:'bar', label:'Otros costos', data: otr, backgroundColor:otrColors, borderColor:otrBorder, borderWidth:2, borderRadius:4, order:2, stack:'costos'},
-        {type:'line', label:'Costo total', data: totalCost, borderColor:'#a78bfa', backgroundColor:'#a78bfa', tension:.3, order:1, pointRadius:pointRadii, pointBackgroundColor:pointColors, pointBorderColor:pointColors},
-        {type:'line', label:'Margen %', data: mgn, yAxisID:'y1', borderColor:'#38bdf866', backgroundColor:'#38bdf866', borderWidth:1.5, borderDash:[5,4], tension:.3, order:0, pointRadius:2, pointBackgroundColor:'#38bdf866', spanGaps:true, isPercent:true}
+        {type:'bar', label:'Ingresos', data: ing, backgroundColor:'#22c58be6', borderRadius:5, order:2, categoryPercentage:.62, barPercentage:.85},
+        {type:'bar', label:'Costos directos', data: dir, backgroundColor:dirColors, borderColor:dirBorder, borderWidth:2, borderRadius:5, order:2, stack:'costos', categoryPercentage:.62, barPercentage:.85},
+        {type:'bar', label:'Otros costos', data: otr, backgroundColor:otrColors, borderColor:otrBorder, borderWidth:2, borderRadius:5, order:2, stack:'costos', categoryPercentage:.62, barPercentage:.85},
+        {type:'line', label:'Margen %', data: mgn, yAxisID:'y1', borderColor:'#93a0bd80', backgroundColor:'#93a0bd80', borderWidth:1.5, borderDash:[5,4], tension:.3, order:0, pointRadius:2, pointBackgroundColor:'#93a0bd80', spanGaps:true, isPercent:true}
       ]
     },
     options:{
@@ -2496,7 +2501,7 @@ function renderTrend(rows){
         const dsIndex = el.datasetIndex;
         const key = trendMeta.keys[idx];
         const label = trendMeta.labels[idx];
-        if(dsIndex===4){
+        if(dsIndex===3){
           const pct = trendMeta.mgn[idx];
           const cellRows = trendMeta.rows.filter(r=>monthKey(r)===key);
           const cls = pct==null ? 'sin ingresos en el mes' : (pct>=30 ? 'saludable (≥ meta de 30%)' : (pct>=0 ? 'positivo pero por debajo de la meta de 30%' : 'negativo (los costos superaron los ingresos)'));
@@ -2504,30 +2509,22 @@ function renderTrend(rows){
           openBreakdownModal(`Margen — ${label}`, cellRows, {note});
           return;
         }
-        let catFilter, catLabel, isOutlierCat;
+        let catFilter, catLabel;
         if(dsIndex===0){ catFilter=r=>r.eri==='01 Ingresos'; catLabel='Ingresos'; }
         else if(dsIndex===1){ catFilter=r=>r.eri==='02 Costos Directos'; catLabel='Costos directos'; }
-        else if(dsIndex===2){ catFilter=r=>r.eri==='03 Otros Costos'; catLabel='Otros costos'; }
-        else { catFilter=r=>r.eri!=='01 Ingresos'; catLabel='Costo total'; }
+        else { catFilter=r=>r.eri==='03 Otros Costos'; catLabel='Otros costos'; }
         const cellRows = trendMeta.rows.filter(r=>monthKey(r)===key && catFilter(r));
-        let note = null;
-        if(catLabel==='Costo total' && trendMeta.outliers[idx]){
-          const avgOther = mean(trendMeta.totalCost.filter((_,i)=>i!==idx));
-          const pctDiff = avgOther ? ((trendMeta.totalCost[idx]/avgOther*100)-100).toFixed(0) : '—';
-          const topCausa = groupSum(cellRows, r=>r.cmayor)[0];
-          note = `Este mes fue un <b>pico atípico</b>: ${pctDiff}% respecto al promedio de los demás meses filtrados (${fmtCOP(avgOther)} COP). Principal causante: <b>${topCausa ? topCausa[0] : 'N/D'}</b> (${topCausa?fmtCOP(topCausa[1])+' COP':''}).`;
-        }
-        openBreakdownModal(`${catLabel} — ${label}`, cellRows, {note});
+        openBreakdownModal(`${catLabel} — ${label}`, cellRows);
       },
       plugins:{
-        legend:{labels:{color:'#e8ecf5', boxWidth:12, font:{size:11.5}}},
+        legend:{labels:{color:'#e8ecf5', boxWidth:9, usePointStyle:true, pointStyle:'circle', font:{size:11.5}}},
         tooltip:{callbacks:{label: c => c.dataset.label==='Margen %' ? (c.dataset.label+': '+(c.raw==null?'N/D':c.raw.toFixed(1)+'%')) : (c.dataset.label+': '+fmtCOP(c.raw)+' COP'+(trendMeta.outliers[c.dataIndex] && c.dataset.label!=='Ingresos' ? ' ⚠ pico' : ''))}},
-        valueLabels:{enabled:true, color:'#e8ecf5', datasets:[0,1,2,3]}
+        valueLabels:{enabled:true, color:'#e8ecf5', datasets:[0,1,2]}
       },
       scales:{
-        x:{ticks:{color:'#93a0bd'}, grid:{color:'#2a3350'}},
-        y:{ticks:{color:'#93a0bd', callback:v=>fmtCOPShort(v)}, grid:{color:'#2a3350'}},
-        y1:{position:'right', ticks:{color:'#38bdf8', callback:v=>v+'%'}, grid:{drawOnChartArea:false}}
+        x:{ticks:{color:'#93a0bd'}, grid:{color:'#2a335090'}},
+        y:{ticks:{color:'#93a0bd', callback:v=>fmtCOPShort(v)}, grid:{color:'#2a335090'}},
+        y1:{position:'right', ticks:{color:'#93a0bd', callback:v=>v+'%'}, grid:{drawOnChartArea:false}}
       }
     }
   });
@@ -2552,6 +2549,58 @@ function renderTrend(rows){
   } else {
     note.innerHTML = '';
   }
+}
+
+function renderCostoTotal(rows){
+  const {keys, dir, otr} = monthlyAgg(rows);
+  const totalCost = keys.map((k,i)=>dir[i]+otr[i]);
+  const labels = keys.map(k=>{ const [y,m] = k.split('-'); return MONTH_NAMES[parseInt(m,10)]+' '+y; });
+  const outliers = detectHighOutliers(totalCost, 1.0);
+
+  costoTotalMeta = {keys, labels, totalCost, rows, outliers};
+
+  const pointColors = totalCost.map((v,i)=> outliers[i] ? '#ff2e63' : '#a78bfa');
+  const pointRadii = totalCost.map((v,i)=> outliers[i] ? 8 : 5);
+
+  destroyChart('costoTotal');
+  const ctx = document.getElementById('chartCostoTotal');
+  charts.costoTotal = new Chart(ctx, {
+    type:'line',
+    data: {
+      labels,
+      datasets: [
+        {label:'Costo total', data: totalCost, borderColor:'#a78bfa', backgroundColor:'rgba(167,139,250,.16)', borderWidth:2.5, tension:.3, fill:true, pointRadius:pointRadii, pointHoverRadius:8, pointBackgroundColor:pointColors, pointBorderColor:pointColors}
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      layout:{padding:{top:22}},
+      onClick:(evt, elements)=>{
+        if(!elements.length) return;
+        const idx = elements[0].index;
+        const key = costoTotalMeta.keys[idx];
+        const label = costoTotalMeta.labels[idx];
+        const cellRows = costoTotalMeta.rows.filter(r=>monthKey(r)===key && r.eri!=='01 Ingresos');
+        let note = null;
+        if(costoTotalMeta.outliers[idx]){
+          const avgOther = mean(costoTotalMeta.totalCost.filter((_,i)=>i!==idx));
+          const pctDiff = avgOther ? ((costoTotalMeta.totalCost[idx]/avgOther*100)-100).toFixed(0) : '—';
+          const topCausa = groupSum(cellRows, r=>r.cmayor)[0];
+          note = `Este mes fue un <b>pico atípico</b>: ${pctDiff}% respecto al promedio de los demás meses filtrados (${fmtCOP(avgOther)} COP). Principal causante: <b>${topCausa ? topCausa[0] : 'N/D'}</b> (${topCausa?fmtCOP(topCausa[1])+' COP':''}).`;
+        }
+        openBreakdownModal(`Costo total — ${label}`, cellRows, {note});
+      },
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label: c => 'Costo total: '+fmtCOP(c.raw)+' COP'+(costoTotalMeta.outliers[c.dataIndex] ? ' ⚠ pico' : '')}},
+        valueLabels:{enabled:true, color:'#e8ecf5'}
+      },
+      scales:{
+        x:{ticks:{color:'#93a0bd'}, grid:{color:'#2a335090'}},
+        y:{ticks:{color:'#93a0bd', callback:v=>fmtCOPShort(v)}, grid:{color:'#2a335090'}}
+      }
+    }
+  });
 }
 
 function renderMargin(rows){
@@ -2600,13 +2649,13 @@ function renderMargin(rows){
         openBreakdownModal(`Margen — ${label}`, cellRows, {note});
       },
       plugins:{
-        legend:{labels:{color:'#e8ecf5', boxWidth:12, font:{size:11.5}, filter: item => item.text!=='Meta 30%'}},
+        legend:{labels:{color:'#e8ecf5', boxWidth:9, usePointStyle:true, pointStyle:'circle', font:{size:11.5}, filter: item => item.text!=='Meta 30%'}},
         tooltip:{filter: item => item.dataset.label!=='Meta 30%', callbacks:{label: c => c.dataset.label+': '+(c.raw==null?'N/D':c.raw.toFixed(1)+'%')}},
         valueLabels:{enabled:true, color:'#e8ecf5', datasets:[1,2]}
       },
       scales:{
-        x:{ticks:{color:'#93a0bd'}, grid:{color:'#2a3350'}},
-        y:{ticks:{color:'#93a0bd', callback:v=>v+'%'}, grid:{color:'#2a3350'}}
+        x:{ticks:{color:'#93a0bd'}, grid:{color:'#2a335090'}},
+        y:{ticks:{color:'#93a0bd', callback:v=>v+'%'}, grid:{color:'#2a335090'}}
       }
     }
   });
